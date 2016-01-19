@@ -1,5 +1,6 @@
 #  coding: utf-8 
 import SocketServer
+import os
 
 # Copyright 2013 Abram Hindle, Eddie Antonio Santos
 # 
@@ -30,10 +31,43 @@ import SocketServer
 class MyWebServer(SocketServer.BaseRequestHandler):
     
     def handle(self):
-        self.data = self.request.recv(1024).strip()
-        print ("Got a request of: %s\n" % self.data)
-        self.request.sendall("OK")
+	http_200 = "HTTP/1.1 200 OK\r\n"
+	http_404 = "HTTP/1.1 404 NOT FOUND\r\n\r\n<html><body><h1>HTTP/1.1 404 NOT FOUND</h1></body></html>\r\n\r\n"
+	
+	self.data = self.request.recv(1024).strip()
+	print ("Got a request of: %s\n" % self.data)
+        requestList = self.data.split('\n')
+        filepath = requestList[0].split()[1]
+	parent = ''
+	try:
+	    if (requestList[6].startswith('Referer:') and not requestList[6].endswith('/')):
+		temp = requestList[6].split('/')
+		parent = temp[-1].strip()
+	except:
+	    pass    
+	    
+	if (filepath.endswith('/')):
+	    filepath += "index.html"
+	    theType = "text/html"
+	elif (filepath.endswith("deep")):
+	    filepath += "/index.html"
+	    theType = "text/html"
+	elif (filepath.endswith(".html")):
+	    theType = "text/html"
+	elif (filepath.endswith(".css")):
+	    theType = "text/css"
+	    if (not parent.endswith(".html")):
+		filepath = "/" + parent + filepath
 
+	try:
+	    theFile = open("www/" + filepath, 'r').read()	    
+	    sendMessage = http_200 + "Content-Type: " + theType + "\r\nContent-Length: " + str(len(theFile)) + "\r\n\r\n" + theFile  + "\r\n\r\n"
+	except:
+	    sendMessage = http_404
+	    
+	self.request.sendall(sendMessage)
+        self.request.close()
+        
 if __name__ == "__main__":
     HOST, PORT = "localhost", 8080
 
